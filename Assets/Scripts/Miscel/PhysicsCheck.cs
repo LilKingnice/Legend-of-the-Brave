@@ -13,6 +13,7 @@ public class PhysicsCheck : MonoBehaviour
     public LayerMask chackingMask;
     
 
+    //玩家地面检测
     public bool IsGround()
     {
         // playerGroundCheck= Physics2D.OverlapCircle((Vector2)transform.position+BottomOffset, checkRadius, chackingMask);
@@ -21,7 +22,6 @@ public class PhysicsCheck : MonoBehaviour
         
         return Physics2D.OverlapCircle((Vector2)transform.position+BottomOffset, checkRadius, chackingMask);
     }
-
 
     private void OnDrawGizmos()
     {
