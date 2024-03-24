@@ -8,19 +8,32 @@ using Vector2 = UnityEngine.Vector2;
 public class PhysicsCheck : MonoBehaviour
 {
     public Vector2 BottomOffset;
-    //public bool playerGroundCheck;
+    
     public float checkRadius;
     public LayerMask chackingMask;
-    
+    public bool playerGroundCheck;
 
     //玩家地面检测
-    public bool IsGround()
+    // public bool IsGround()
+    // {
+    //     // playerGroundCheck= Physics2D.OverlapCircle((Vector2)transform.position+BottomOffset, checkRadius, chackingMask);
+    //     // Debug.Log("Checking...:"+playerGroundCheck);
+    //     //return playerGroundCheck;
+    //     
+    //     return Physics2D.OverlapCircle((Vector2)transform.position+BottomOffset, checkRadius, chackingMask);
+    // }
+    private void Update()
+    {
+        IsGround();
+    }
+
+    public void IsGround()
     {
         // playerGroundCheck= Physics2D.OverlapCircle((Vector2)transform.position+BottomOffset, checkRadius, chackingMask);
         // Debug.Log("Checking...:"+playerGroundCheck);
         //return playerGroundCheck;
         
-        return Physics2D.OverlapCircle((Vector2)transform.position+BottomOffset, checkRadius, chackingMask);
+        playerGroundCheck= Physics2D.OverlapCircle((Vector2)transform.position+BottomOffset, checkRadius, chackingMask);
     }
 
     private void OnDrawGizmos()

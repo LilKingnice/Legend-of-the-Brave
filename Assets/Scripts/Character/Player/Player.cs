@@ -14,16 +14,22 @@ public class Player : Character
     private Vector2 moveDirection;
     [SerializeField]private float hurtForce;
     [SerializeField]private float speed;
+
+    [Header("材质")] 
+    [SerializeField]private PhysicsMaterial2D normal;
+    [SerializeField]private PhysicsMaterial2D smooth;
     
     
-    private PhysicsCheck playergroundcheck;
+    private PhysicsCheck physicsCheck;
     [SerializeField] private float jumpForce;
     [SerializeField]private int maxJumpCount=2;
     [SerializeField]private int currentJumpCount=0;
 
     private bool isGround;//地面检测
-    private bool canResetJumpCount;//多段跳检测
+    
     public bool IsHurting { get; set; }//表示受伤状态
+    public bool IsAttacking { get; set; }//表示攻击状态
+    
     
 
     private Animator playerAnimator;
@@ -33,7 +39,7 @@ public class Player : Character
         _inputSystem = new LegendBrave();
         player = GetComponent<Rigidbody2D>();
         playerFlip = GetComponent<SpriteRenderer>();
-        playergroundcheck = GetComponent<PhysicsCheck>();
+        physicsCheck = GetComponent<PhysicsCheck>();
         playerAnimator = GetComponent<Animator>();
     }
     
@@ -46,8 +52,8 @@ public class Player : Character
     private void OnEnable()
     {
         _inputSystem.Enable();
-        _inputSystem.GamePlay.Jump.started += OnJump;
-        _inputSystem.GamePlay.Attack.started+= OnAttack;
+         _inputSystem.GamePlay.Jump.started += OnJump;
+         _inputSystem.GamePlay.Attack.started+= OnAttack;
     }
     
     private void OnDisable()
@@ -64,40 +70,44 @@ public class Player : Character
 
     private void Update()
     {
-        moveDirection=_inputSystem.GamePlay.Move.ReadValue<Vector2>();
+        moveDirection.x=_inputSystem.GamePlay.Move.ReadValue<Vector2>().x;
         moveDirection.y = player.velocity.y;
         AnimationCheck();
     }
 
     private void FixedUpdate()
     {
-        if (!IsHurting)
+        if (!IsHurting&&!IsAttacking)
         {
             PlayerMove();
         }
-        isGround=playergroundcheck.IsGround();
+        isGround=physicsCheck.playerGroundCheck;
         
-        if (isGround&&canResetJumpCount)
+        if (isGround&&player.velocity.y<0.1)
         {
             playerAnimator.SetBool("isGround",true);
             currentJumpCount = 0;
+            player.sharedMaterial = normal;
         }
     }
-
-
-
+    
     #region 移动逻辑
     private void PlayerMove()
     {
-        if (moveDirection.x > 0) PlayerFlip(false);
-        if (moveDirection.x < 0) PlayerFlip(true);
+        // if (moveDirection.x > 0) PlayerFlip(false);
+        // if (moveDirection.x < 0) PlayerFlip(true);
 
+        if (moveDirection.x > 0) PlayerFlip(1);
+        if (moveDirection.x < 0) PlayerFlip(-1);
         player.velocity = new Vector2(moveDirection.x * speed *Time.deltaTime,player.velocity.y);
     }
 
-    private void PlayerFlip(bool faceTo)
+    private void PlayerFlip(float faceTo)
     {
-        playerFlip.flipX = faceTo;
+        //无法一起修改Collider
+        //playerFlip.flipX = faceTo;
+        transform.localScale = new Vector3(faceTo, 1, 1);
+        
     }
     #endregion
     
@@ -105,35 +115,13 @@ public class Player : Character
     #region 跳跃逻辑
     public void OnJump(InputAction.CallbackContext obj)
     {
-        //简单判断二段跳
-        // if (isGround)
-        // {
-        //     player.AddForce(transform.up * jumpForce, ForceMode2D.Impulse);
-        //     doubleJump = true;
-        // }
-        // else if (doubleJump)
-        // {
-        //     player.AddForce(transform.up * jumpForce, ForceMode2D.Impulse);
-        //     doubleJump = false;
-        // }
-        
         //多段跳
-        if (currentJumpCount<maxJumpCount)
+        if (isGround||currentJumpCount<maxJumpCount)
         {
-            playerAnimator.SetBool("isGround",false);
+            player.sharedMaterial = smooth;
             currentJumpCount++;
-            canResetJumpCount = false;
             player.AddForce(transform.up * jumpForce, ForceMode2D.Impulse);
-            StartCoroutine(nameof(EnableJumpReset));
         }
-        
-        
-    }
-
-    IEnumerator EnableJumpReset()
-    {
-        yield return new WaitForSeconds(0.5f);
-        canResetJumpCount = true;
     }
     #endregion
     
@@ -141,17 +129,12 @@ public class Player : Character
     #region 攻击逻辑
     private void OnAttack(InputAction.CallbackContext obj)
     {
-        playerAnimator.SetTrigger("Attacking");
+        
+        PlayAttackAnimation();
     }
     #endregion
 
     #region 受伤逻辑
-    
-    protected override void TackDamage(float hit,Transform other)
-    {
-        base.TackDamage(hit,other);
-        //StartCoroutine(nameof(InvulnerableIEnumerator));
-    }
     
     protected override void Die()
     {
@@ -159,12 +142,7 @@ public class Player : Character
         playerAnimator.SetBool("isDead", true);
         DisableAllInputs();
     }
-
-    // protected override IEnumerator InvulnerableIEnumerator()
-    // {
-    //     playerAnimator.SetBool("GetHurt",false);
-    //     return base.InvulnerableIEnumerator();
-    // }
+    
     
     #endregion
     
@@ -173,16 +151,27 @@ public class Player : Character
     {
         playerAnimator.SetFloat("Velocity",Mathf.Abs(moveDirection.x));
         playerAnimator.SetFloat("JumpHeight",moveDirection.y);
+        if (!isGround)
+        {
+            playerAnimator.SetBool("isGround",false);
+        }
     }
     
-    void PlayHurtAnimation(Transform others)
+    protected override void PlayHurtAnimation()
     {
         playerAnimator.SetTrigger("Hurting");
         IsHurting = true;//暂停移动
         player.velocity = Vector2.zero;
-        Vector2 dir = new Vector2((transform.position.x - others.position.x), 0).normalized;
+        //Vector2 dir = new Vector2((transform.position.x - others.position.x), 0).normalized;
+        Vector2 dir = new Vector2((transform.localScale.x *-1), 0).normalized;
         player.AddForce(dir * hurtForce, ForceMode2D.Impulse);
-        Debug.Log("ishurt回调函数");
+        Debug.Log("player重写");
+    }
+
+    private void PlayAttackAnimation()
+    {
+        playerAnimator.SetTrigger("Attacking");
+        IsAttacking = true;//暂停移动
     }
 
     #endregion
